@@ -13,6 +13,18 @@ spring:
     database-platform: org.hibernate.dialect.H2Dialect
     hibernate:
       ddl-auto: update
+  ssl:
+    bundle:
+      pem:
+        web:
+          keystore:
+            private-key: "classpath:private-key.pem"
+            certificate: "classpath:certificate.pem"
+          truststore:
+            certificate: "classpath:truststore.pem"
 
 server:
   port: 8443
+  ssl:
+    enabled: true
+    bundle: web
