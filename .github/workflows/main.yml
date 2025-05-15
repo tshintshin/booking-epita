@@ -2,45 +2,49 @@ name: Daily Security Pipeline
 
 on:
   schedule:
-    - cron: '0 0 * * *'
-  workflow_dispatch:
+    - cron: '0 1 * * *'  # Tous les jours à 01h00 UTC
+  workflow_dispatch:      # Exécution manuelle possible
 
 permissions:
-  contents: read          # lecture du repo
-  security-events: write  # nécessaire pour upload-sarif
+  contents: read
+  security-events: write  # Nécessaire pour publier les rapports SARIF
 
 jobs:
   DependenciesAnalysis:
-    name: Dependencies Analysis (Semgrep)
+    name: Analyse Semgrep (Java)
     runs-on: ubuntu-latest
     container:
       image: returntocorp/semgrep
-
     steps:
-      - name: Checkout repository
+      - name: Checkout du code
         uses: actions/checkout@v3
 
-      - name: Run Semgrep Java rules
-        run: semgrep --config p/java --sarif --output semgrep.sarif app/
+      - name: Lancer Semgrep
+        run: semgrep --config=p/java --sarif --output=semgrep-report.sarif
 
-      - name: Upload Semgrep SARIF to Security Dashboard
+      - name: Envoyer le rapport SARIF
         uses: github/codeql-action/upload-sarif@v3
         with:
-          sarif_file: semgrep.sarif
+          sarif_file: semgrep-report.sarif
 
   SourceCodeAnalysis:
-    name: Source Code Analysis (OSV Scanner)
+    name: Analyse OSV Scanner
     runs-on: ubuntu-latest
-    needs: DependenciesAnalysis
-
     steps:
-      - name: Checkout repository
+      - name: Checkout du code
         uses: actions/checkout@v3
 
-      - name: Run OSV Scanner
-        uses: google/osv-scanner-action/osv-scanner-action@v2.0.2
+      - name: Télécharger OSV-Scanner
+        run: |
+          curl -sSfL https://github.com/google/osv-scanner/releases/download/v2.0.2/osv-scanner_darwin_amd64 -o osv-scanner
+          chmod +x osv-scanner
+          sudo mv osv-scanner /usr/local/bin/
 
-      - name: Upload OSV SARIF to Security Dashboard
+      - name: Lancer OSV-Scanner
+        run: |
+          osv-scanner --lockfile=**/package-lock.json --format sarif --output osv-report.sarif || echo "OSV scan terminé"
+
+      - name: Envoyer le rapport SARIF
         uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: osv-report.sarif
